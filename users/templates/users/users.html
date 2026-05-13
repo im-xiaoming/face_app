@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+  <title>Users - Face Recognition Demo</title>
+{% endblock %}
+
+
+{% block content %}
+  <!-- Back button -->
+  <a href="{% url 'home' %}" class="back-btn">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+  </a>
+
+  <!-- Menu -->
+  <button class="menu-btn" onclick="toggleMenu()">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+  </button>
+  <div class="menu-dropdown" id="menu">
+    <a href="users.html" class="menu-item">Users</a>
+  </div>
+
+  <div class="container">
+    <h1 class="page-title">Users</h1>
+    
+    <div class="user-list" id="user-list">
+      <!-- Users will be rendered here -->
+    </div>
+  </div>
+{% endblock %}
+
+
+
+{% block js %}
+  <script>
+    /** Fake users data */
+    const fakeUsers = [
+      { id: 1, name: 'Nguyen Van A', dob: '1990-05-15', email: 'nguyenvana@email.com' },
+      { id: 2, name: 'Tran Thi B', dob: '1995-08-22', email: 'tranthib@email.com' },
+      { id: 3, name: 'Le Van C', dob: '1988-12-01', email: 'levanc@email.com' },
+      { id: 4, name: 'Pham Thi D', dob: '1992-03-10', email: 'phamthid@email.com' },
+      { id: 5, name: 'Hoang Van E', dob: '2000-07-25', email: 'hoangvane@email.com' },
+    ];
+
+    /**
+     * Render danh sach users ra HTML
+     */
+    function renderUsers() {
+      const list = document.getElementById('user-list');
+      list.innerHTML = fakeUsers.map(user => `
+        <div class="user-row">
+          <div class="user-avatar">${user.name.charAt(0)}</div>
+          <div class="user-info">
+            <div class="user-name">${user.name}</div>
+            <div class="user-detail">ID: ${user.id} | DOB: ${user.dob}</div>
+            <div class="user-detail">${user.email}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    renderUsers();
+  </script>
+{% endblock %}
