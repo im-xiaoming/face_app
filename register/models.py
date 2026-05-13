@@ -14,7 +14,8 @@ class UserModel(models.Model):
 
 class FaceImage(models.Model):
     user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='face_images')
-    image = models.ImageField(upload_to='registered_faces/')
+    raw_image = models.ImageField(upload_to='registered_faces/raw/')
+    processed_image = models.ImageField(upload_to='registered_faces/processed/', blank=True)
 
     def __str__(self):
         return f'{self.user.name} - {self.pk}'
@@ -22,5 +23,7 @@ class FaceImage(models.Model):
 
 @receiver(post_delete, sender=FaceImage)
 def delete_face_image_file(sender, instance, **kwargs):
-    if instance.image:
-        instance.image.delete(save=False)
+    if instance.raw_image:
+        instance.raw_image.delete(save=False)
+    if instance.processed_image:
+        instance.processed_image.delete(save=False)

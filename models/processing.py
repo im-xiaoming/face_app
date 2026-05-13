@@ -44,7 +44,7 @@ def _get_model():
 
 def preprocess_face(image_path: str) -> tuple[np.ndarray, dict]:
     
-    app = _get_model()
+    app, model, transform = _get_model()
     
     img = cv2.imread(image_path)
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -62,10 +62,10 @@ def preprocess_face(image_path: str) -> tuple[np.ndarray, dict]:
         conf_score = float(f.det_score)
         return 0.7 * area_score + 0.3 * conf_score
 
-    face = sorted(faces, key=combined_score, reverse=True)[0]
-    aligned = face_align.norm_crop(img_rgb, landmark=face.kps, image_size=112)
+    face_info = sorted(faces, key=combined_score, reverse=True)[0]
+    aligned = face_align.norm_crop(img_rgb, landmark=face_info.kps, image_size=112)
 
-    return aligned, face
+    return aligned, face_info
 
 
 def estimate_pose_and_quality(aligned_face: np.ndarray, face_info) -> dict:

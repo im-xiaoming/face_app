@@ -11,4 +11,4 @@ class UserModelAdmin(admin.ModelAdmin):
     
 @admin.register(FaceImage)
 class FaceImageAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'image']
+    list_display = ['id', 'user', 'raw_image', 'processed_image']

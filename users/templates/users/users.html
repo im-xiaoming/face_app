@@ -18,41 +18,17 @@
     <h1 class="page-title">Users</h1>
     
     <div class="user-list" id="user-list">
-      <!-- Users will be rendered here -->
-    </div>
-  </div>
-{% endblock %}
-
-
-
-{% block js %}
-  <script>
-    /** Fake users data */
-    const fakeUsers = [
-      { id: 1, name: 'Nguyen Van A', dob: '1990-05-15', email: 'nguyenvana@email.com' },
-      { id: 2, name: 'Tran Thi B', dob: '1995-08-22', email: 'tranthib@email.com' },
-      { id: 3, name: 'Le Van C', dob: '1988-12-01', email: 'levanc@email.com' },
-      { id: 4, name: 'Pham Thi D', dob: '1992-03-10', email: 'phamthid@email.com' },
-      { id: 5, name: 'Hoang Van E', dob: '2000-07-25', email: 'hoangvane@email.com' },
-    ];
-
-    /**
-     * Render danh sach users ra HTML
-     */
-    function renderUsers() {
-      const list = document.getElementById('user-list');
-      list.innerHTML = fakeUsers.map(user => `
+      {% for user in users %}
+        <!-- Users will be rendered here -->
         <div class="user-row">
-          <div class="user-avatar">${user.name.charAt(0)}</div>
+          <div class="user-avatar">{{ user.name|first|upper }}</div>
           <div class="user-info">
-            <div class="user-name">${user.name}</div>
-            <div class="user-detail">ID: ${user.id} | DOB: ${user.dob}</div>
-            <div class="user-detail">${user.email}</div>
+            <div class="user-name">{{ user.name }}</div>
+            <div class="user-detail">ID: {{ user.id }} | DOB: {{ user.dob }}</div>
+            <div class="user-detail">{{ user.email }}</div>
           </div>
         </div>
-      `).join('');
-    }
-
-    renderUsers();
-  </script>
+      {% endfor %}
+    </div>
+  </div>
 {% endblock %}
