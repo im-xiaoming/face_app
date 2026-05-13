@@ -15,7 +15,7 @@ _cache = {}
 
 def _get_model():
     if _cache:
-        return _cache['app'], _cache['model'], _cache['transform']
+        return _cache['app'], _cache['model'], _cache['transform'], _cache['device']
     
     app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
@@ -37,14 +37,15 @@ def _get_model():
     _cache['app'] = app
     _cache['model'] = model
     _cache['transform'] = transform
+    _cache['device'] = device
     
-    return app, model, transform
+    return app, model, transform, device
 
 
 
 def preprocess_face(image_path: str) -> tuple[np.ndarray, dict]:
     
-    app, model, transform = _get_model()
+    app, _, _, _ = _get_model()
     
     img = cv2.imread(image_path)
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

@@ -1,5 +1,5 @@
 from django import forms
-from .models import UserModel
+from users.models import UserModel
 from django.core.exceptions import ValidationError
 
 

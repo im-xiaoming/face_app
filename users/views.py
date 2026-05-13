@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from register.models import UserModel
+from .models import UserModel
 
 # Create your views here.
 def list_users(request):

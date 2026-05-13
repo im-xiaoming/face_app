@@ -8,7 +8,7 @@ from django.conf import settings
 from django.core.files import File
 
 from models.processing import preprocess_face, estimate_pose_and_quality
-from .models import FaceImage
+from users.models import FaceImage
 
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
