@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+  <title>Upload Register - Face Recognition</title>
+{% endblock %}
+
+
+{% block content %}
+  <a href="{% url 'register' %}" class="back-btn">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+  </a>
+
+  <div class="container">
+    <h1 class="title">Upload Photo</h1>
+    
+    <div class="upload-area" onclick="document.getElementById('file-input').click()">
+      <svg id="upload-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <span id="upload-text">Chọn ảnh khuôn mặt</span>
+      <img id="preview" style="display: none;">
+    </div>
+    
+    <input type="file" id="file-input" accept="image/*" multiple onchange="previewImage(event)">
+    
+    <div class="camera-controls">
+      <button class="control-btn capture-btn" onclick="registerUploadedPhoto()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M5 13l4 4L19 7"/>
+        </svg>
+      </button>
+    </div>
+    
+    <div id="status" class="status" style="display: none;"></div>
+  </div>
+{% endblock %}
