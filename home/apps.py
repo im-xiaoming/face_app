@@ -9,4 +9,6 @@ class HomeConfig(AppConfig):
         # RUN_MAIN=true chỉ có trong actual server process, không có trong reloader watcher
         if os.environ.get('RUN_MAIN') == 'true':
             from models.processing import _get_model
+            from tools.qdrant import _get_client
             _get_model()
+            _get_client()

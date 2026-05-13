@@ -38,6 +38,15 @@ def search(query: torch.Tensor, limit=5):
         ),
         limit=limit,
     )
+    outputs = []
+
+    for point in results.points:
+        outputs.append({
+            'user_id': point.payload.get('user_id'),
+            'score': point.score
+        })
+    return outputs
+
     
 def update(queries: list[tuple[int, torch.Tensor, dict]]):
     client, collection_name = _get_client['client']
@@ -49,6 +58,8 @@ def update(queries: list[tuple[int, torch.Tensor, dict]]):
                 for id, vector, payload in queries
         ]
     )
+    print("DONE!")
+    
 
 def delete(ids: list[int]):
     client, collection_name = _get_client['client']
@@ -57,3 +68,4 @@ def delete(ids: list[int]):
         collection_name=collection_name,
         points_selector=ids
     )
+    print("DONE!")

@@ -79,3 +79,4 @@ runs/
 # CUDA
 *.cu.o
 checkpoints/*
+vectorstore
