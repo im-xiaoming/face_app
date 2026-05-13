@@ -3,8 +3,10 @@ from pathlib import Path
 from uuid import uuid4
 
 from django.conf import settings
+from django.core.files import File
 from django.shortcuts import render, redirect
 from .forms import UserForm
+from .models import FaceImage
 
 
 def register(request):
@@ -55,17 +57,18 @@ def register_info(request):
         form = UserForm(request.POST)
 
         if form.is_valid():
-            form.save()
-            
-            # Save images
+            user = form.save()
+
             temp_dir = Path(settings.BASE_DIR) / 'media' / 'temp' / temp_key
-            final_dir = Path(settings.BASE_DIR) / 'media' / 'registered_faces' / temp_key
 
             if temp_dir.exists():
-                shutil.move(str(temp_dir), str(final_dir))
+                for image_path in sorted(temp_dir.iterdir()):
+                    with image_path.open('rb') as f:
+                        face = FaceImage(user=user)
+                        face.image.save(image_path.name, File(f), save=True)
+                shutil.rmtree(temp_dir)
 
             del request.session['temp_upload_key']
-            
             return redirect('home')
     
     else:
