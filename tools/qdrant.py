@@ -11,7 +11,7 @@ def _get_client():
         return _cache['client']
     
     client = QdrantClient(path=Path(settings.BASE_DIR) / 'vectorstore' / 'qdrant')
-    collection_name = 'users'
+    collection_name = 'users_embeds'
     
     if not client.collection_exists(collection_name=collection_name):
         client.create_collection(
@@ -33,7 +33,7 @@ def search(query: torch.Tensor, limit=5):
         query=query.tolist(),
         query_filter=Filter(
             must=[
-                FieldCondition(key="user_id", match=MatchValue(value=1))
+                FieldCondition(key="embed_id", match=MatchValue(value=1))
             ]
         ),
         limit=limit,
@@ -42,7 +42,7 @@ def search(query: torch.Tensor, limit=5):
 
     for point in results.points:
         outputs.append({
-            'user_id': point.payload.get('user_id'),
+            'embed_id': point.payload.get('embed_id'),
             'score': point.score
         })
     return outputs

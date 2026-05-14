@@ -21,6 +21,13 @@ class FaceImage(models.Model):
         return f'{self.user.name} - {self.pk}'
 
 
+class UserEmbedding(models.Model):
+    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='user_embeds')
+    embed_id = models.IntegerField(unique=True, primary_key=True)
+    
+    def __str__(self):
+        return f'{self.user.name} - {self.pk}'
+
 
 @receiver(post_delete, sender=FaceImage)
 def delete_face_image_file(sender, instance, **kwargs):
