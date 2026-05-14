@@ -10,12 +10,13 @@ from django.conf import settings
 from django.core.files import File
 
 from models.processing import preprocess_face, estimate_pose_and_quality
-from users.models import FaceImage, UserEmbedding
+from users.models import FaceImage, FacePose, UserEmbedding
 
 logger = logging.getLogger(__name__)
 
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
+VALID_POSES = {FacePose.FRONT, FacePose.LEFT, FacePose.RIGHT, FacePose.UNKNOWN}
 
 
 def make_temp_dirs(temp_key: str) -> tuple[Path, Path, Path]:
@@ -48,7 +49,23 @@ def save_raw_files(files, raw_dir: Path) -> list[Path]:
         return [f.result() for f in futures]
 
 
-def _process_single(raw_path: Path, processed_dir: Path) -> dict | None:
+def normalize_pose(value: str | None) -> str:
+    if value in VALID_POSES:
+        return value
+    return FacePose.UNKNOWN
+
+
+def classify_pose(yaw: float | None) -> str:
+    if yaw is None:
+        return FacePose.UNKNOWN
+    if yaw < -12:
+        return FacePose.LEFT
+    if yaw > 12:
+        return FacePose.RIGHT
+    return FacePose.FRONT
+
+
+def _process_single(raw_path: Path, processed_dir: Path, pose: str | None = None) -> dict | None:
     """Xử lý một ảnh qua pipeline. Trả về dict nếu đạt, None nếu bị reject hoặc không có face."""
     try:
         aligned, face_info = preprocess_face(str(raw_path))
@@ -59,16 +76,26 @@ def _process_single(raw_path: Path, processed_dir: Path) -> dict | None:
 
         proc_filename = raw_path.stem + '_processed.jpg'
         cv2.imwrite(str(processed_dir / proc_filename), cv2.cvtColor(aligned, cv2.COLOR_RGB2BGR))
-        return {'raw': raw_path.name, 'processed': proc_filename}
+        return {
+            'raw': raw_path.name,
+            'processed': proc_filename,
+            'pose': normalize_pose(pose) if pose else classify_pose(result.get('yaw')),
+        }
 
     except ValueError:
         return None
 
 
-def process_images(raw_paths: list[Path], processed_dir: Path) -> list[dict]:
+def process_images(raw_paths: list[Path], processed_dir: Path, poses: list[str] | None = None) -> list[dict]:
     """Xử lý song song tất cả ảnh. Trả về list ảnh đạt yêu cầu."""
+    if poses is None:
+        poses = [None] * len(raw_paths)
+
     with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(_process_single, p, processed_dir) for p in raw_paths]
+        futures = [
+            executor.submit(_process_single, path, processed_dir, pose)
+            for path, pose in zip(raw_paths, poses)
+        ]
         results = [f.result() for f in futures]
     return [r for r in results if r is not None]
 
@@ -81,6 +108,7 @@ def save_face_images(user, accepted: list[dict], temp_dir: Path) -> list[FaceIma
         proc_path = temp_dir / 'processed' / img_info['processed']
 
         face = FaceImage(user=user)
+        face.pose = normalize_pose(img_info.get('pose'))
         with raw_path.open('rb') as rf, proc_path.open('rb') as pf:
             face.raw_image.save(img_info['raw'], File(rf), save=False)
             face.processed_image.save(img_info['processed'], File(pf), save=False)
@@ -101,8 +129,12 @@ def _extract_and_store_embeddings(user, face_images: list[FaceImage]) -> None:
 
         points = []
         for face_img, embedding in zip(face_images, embeddings):
-            UserEmbedding.objects.create(user=user, embed_id=face_img.pk)
-            points.append((face_img.pk, embedding, {'user_id': user.pk}))
+            UserEmbedding.objects.create(user=user, embed_id=face_img.pk, pose=face_img.pose)
+            points.append((
+                face_img.pk,
+                embedding,
+                {'embed_id': face_img.pk, 'user_id': user.pk, 'pose': face_img.pose},
+            ))
 
         update(points)
     except Exception:

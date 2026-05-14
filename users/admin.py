@@ -11,12 +11,12 @@ class UserModelAdmin(admin.ModelAdmin):
     
 @admin.register(FaceImage)
 class FaceImageAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'raw_image', 'processed_image']
+    list_display = ['id', 'user', 'pose', 'raw_image', 'processed_image']
     
 
 @admin.register(UserEmbedding)
 class UserEmbeddingModel(admin.ModelAdmin):
-    list_display = ['get_user_id', 'embed_id']
+    list_display = ['get_user_id', 'embed_id', 'pose']
     
     def get_user_id(self, obj):
         return obj.user.id

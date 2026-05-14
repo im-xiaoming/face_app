@@ -3,6 +3,13 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 
+class FacePose(models.TextChoices):
+    FRONT = 'front', 'Front'
+    LEFT = 'left', 'Left'
+    RIGHT = 'right', 'Right'
+    UNKNOWN = 'unknown', 'Unknown'
+
+
 class UserModel(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
@@ -16,17 +23,19 @@ class FaceImage(models.Model):
     user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='face_images')
     raw_image = models.ImageField(upload_to='registered_faces/raw/')
     processed_image = models.ImageField(upload_to='registered_faces/processed/', blank=True)
+    pose = models.CharField(max_length=16, choices=FacePose.choices, default=FacePose.UNKNOWN)
 
     def __str__(self):
-        return f'{self.user.name} - {self.pk}'
+        return f'{self.user.name} - {self.pose} - {self.pk}'
 
 
 class UserEmbedding(models.Model):
     user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='user_embeds')
     embed_id = models.IntegerField(unique=True, primary_key=True)
+    pose = models.CharField(max_length=16, choices=FacePose.choices, default=FacePose.UNKNOWN)
     
     def __str__(self):
-        return f'{self.user.name} - {self.pk}'
+        return f'{self.user.name} - {self.pose} - {self.pk}'
 
 
 @receiver(post_delete, sender=FaceImage)
@@ -35,3 +44,8 @@ def delete_face_image_file(sender, instance, **kwargs):
         instance.raw_image.delete(save=False)
     if instance.processed_image:
         instance.processed_image.delete(save=False)
+    try:
+        from tools import delete
+        delete([instance.pk])
+    except Exception:
+        pass

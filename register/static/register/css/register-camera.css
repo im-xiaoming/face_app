@@ -1,0 +1,63 @@
+.camera-wrapper {
+  overflow: hidden;
+}
+
+.face-guide.ready {
+  border-color: #2e7d32;
+}
+
+.face-guide.warn {
+  border-color: #c62828;
+}
+
+.direction-arrow {
+  position: absolute;
+  top: 50%;
+  width: 42px;
+  height: 42px;
+  border-top: 5px solid #fff;
+  border-left: 5px solid #fff;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.35));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.direction-arrow.left {
+  left: 28px;
+  transform: translateY(-50%) rotate(-45deg);
+  opacity: 1;
+}
+
+.direction-arrow.right {
+  right: 28px;
+  transform: translateY(-50%) rotate(135deg);
+  opacity: 1;
+}
+
+.capture-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 18px auto 0;
+  max-width: 320px;
+}
+
+.capture-step {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  color: #666;
+  font-size: 13px;
+  padding: 9px 0;
+}
+
+.capture-step.done {
+  background: #e8f5e9;
+  border-color: #43a047;
+  color: #1b5e20;
+}
+
+.error-status {
+  background: #ffebee;
+  color: #b71c1c;
+}

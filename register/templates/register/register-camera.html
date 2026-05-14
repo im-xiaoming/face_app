@@ -5,6 +5,9 @@
   <title>Camera Register - Face Recognition</title>
 {% endblock %}
 
+{% block css %}
+  <link rel="stylesheet" href="{% static 'register/css/register-camera.css' %}">
+{% endblock %}
 
 {% block content %}
   <a href="{% url 'register' %}" class="back-btn">
@@ -15,28 +18,47 @@
 
   <div class="container">
     <h1 class="title">Register Face</h1>
-    
+
+    <form id="camera-register-form" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="file" id="camera-images" name="images" accept="image/jpeg" multiple hidden>
+      <input type="hidden" id="camera-poses" name="poses">
+    </form>
+
     <div class="camera-wrapper">
       <video id="camera" class="camera-view" autoplay playsinline></video>
       <div class="face-guide"></div>
+      <div id="direction-arrow" class="direction-arrow" aria-hidden="true"></div>
     </div>
-    
-    <p class="hint">Đặt khuôn mặt vào khung oval</p>
-    
+
+    <p id="camera-hint" class="hint">Dat mat vao khung oval</p>
+
+    <div class="capture-steps" aria-label="Captured poses">
+      <span id="step-front" class="capture-step">Front</span>
+      <span id="step-left" class="capture-step">Left</span>
+      <span id="step-right" class="capture-step">Right</span>
+    </div>
+
     <div class="camera-controls">
-      <button class="control-btn capture-btn" onclick="capturePhoto()">
+      <button id="restart-camera-btn" class="control-btn capture-btn" type="button" title="Restart">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10"/>
+          <path d="M21 12a9 9 0 11-3-6.7"/>
+          <path d="M21 3v6h-6"/>
         </svg>
       </button>
     </div>
-    
+
+    {% if error %}
+      <p class="status error-status">{{ error }}</p>
+    {% endif %}
     <div id="status" class="status" style="display: none;"></div>
   </div>
 {% endblock %}
 
 {% block js %}
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="{% static 'register/js/register-camera.js' %}"></script>
   <script>
-    initCamera('camera');
+    initRegisterCamera();
   </script>
 {% endblock %}

@@ -1,7 +1,7 @@
 from django.conf import settings
 from pathlib import Path
 from qdrant_client import QdrantClient
-from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import VectorParams, Distance, PointIdsList, PointStruct, Filter, FieldCondition, MatchValue
 import torch
 
 _cache = {}
@@ -66,6 +66,6 @@ def delete(ids: list[int]):
      
     client.delete(
         collection_name=collection_name,
-        points_selector=ids
+        points_selector=PointIdsList(points=ids),
     )
     print("DONE!")

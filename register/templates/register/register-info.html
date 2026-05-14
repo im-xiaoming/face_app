@@ -11,7 +11,7 @@
 
 
 {% block content %}
-  <a href="{% url 'register-upload' %}" class="back-btn">
+  <a href="{% if source == 'camera' %}{% url 'register-camera' %}{% else %}{% url 'register-upload' %}{% endif %}" class="back-btn">
     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
       <path d="M15 18l-6-6 6-6"/>
     </svg>
