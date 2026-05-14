@@ -12,14 +12,32 @@ let recognitionInterval = null;
  */
 async function initCamera(elementId) {
   const video = document.getElementById(elementId);
-  
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const insecure = location.protocol !== 'https:' && !isLocal;
+    const msg = insecure
+      ? 'Camera yêu cầu HTTPS trên iPhone/Safari. Hãy mở trang qua HTTPS (ngrok/cloudflared/runserver_plus).'
+      : 'Trình duyệt không hỗ trợ camera.';
+    showStatus(msg);
+    throw new Error(msg);
+  }
+
   try {
     videoStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'user', width: 640, height: 480 }
     });
     video.srcObject = videoStream;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('muted', '');
+    video.muted = true;
+    try { await video.play(); } catch (_) { /* iOS may need user gesture */ }
   } catch (err) {
-    showStatus('Không thể truy cập camera: ' + err.message);
+    const reason = err && err.name === 'NotAllowedError'
+      ? 'Bạn đã từ chối quyền camera. Vào Settings → Safari → Camera để cấp lại.'
+      : `Không thể truy cập camera: ${err.message || err.name}`;
+    showStatus(reason);
+    throw err;
   }
 }
 

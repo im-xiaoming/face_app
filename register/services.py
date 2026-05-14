@@ -69,9 +69,11 @@ def _process_single(raw_path: Path, processed_dir: Path, pose: str | None = None
     """Xử lý một ảnh qua pipeline. Trả về dict nếu đạt, None nếu bị reject hoặc không có face."""
     try:
         aligned, face_info = preprocess_face(str(raw_path))
-        result = estimate_pose_and_quality(aligned, face_info)
+        expected = pose if pose in {FacePose.FRONT, FacePose.LEFT, FacePose.RIGHT} else None
+        result = estimate_pose_and_quality(aligned, face_info, expected_pose=expected)
 
         if result['reject']:
+            logger.info("Rejected %s: %s", raw_path.name, result.get('reject_reason'))
             return None
 
         proc_filename = raw_path.stem + '_processed.jpg'

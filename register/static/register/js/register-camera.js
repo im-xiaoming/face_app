@@ -1,33 +1,91 @@
 (function () {
-  const PROCESS_INTERVAL_MS = 500;
-  const STABLE_FRAMES_REQUIRED = 2;
-  const MIN_FACE_WIDTH = 0.3;
-  const MAX_FACE_WIDTH = 0.7;
-  const CENTER_MIN = 0.32;
-  const CENTER_MAX = 0.68;
+  const PROCESS_INTERVAL_MS = 350;
+  const STABLE_FRAMES_REQUIRED = 3;
+  const MIN_FACE_WIDTH = 0.22;
+  const MAX_FACE_WIDTH = 0.72;
   const MIN_BRIGHTNESS = 45;
-  const MAX_BRIGHTNESS = 220;
-  const CENTER_YAW_LIMIT = 0.035;
-  const SIDE_YAW_LIMIT = 0.055;
+  const MAX_BRIGHTNESS = 225;
+
+  const OVAL_INSIDE_RATIO = 0.55;
+  const OVAL_EXPAND_PX = 20;
+  const MOTION_PX_LIMIT = 12;
+
+  const FACE_OVAL_INDICES = [
+    10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365,
+    379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93,
+    234, 127, 162, 21, 54, 103, 67, 109,
+  ];
+
+  const FRONT_YAW_LIMIT = 0.025;
+  const SIDE_YAW_LIMIT = 0.12;
+  const SIDE_YAW_MAX = 0.45;
+  const PITCH_LIMIT = 0.045;
+  const SIDE_PITCH_LIMIT = 0.06;
+  const ROLL_LIMIT_RAD = 0.09;
+  const SIDE_ROLL_LIMIT_RAD = 0.13;
+
+  const LM = {
+    NOSE_TIP: 1,
+    FOREHEAD: 10,
+    CHIN: 152,
+    LEFT_EYE_OUTER: 33,
+    LEFT_EYE_INNER: 133,
+    RIGHT_EYE_INNER: 362,
+    RIGHT_EYE_OUTER: 263,
+    LEFT_CHEEK: 234,
+    RIGHT_CHEEK: 454,
+  };
 
   const STEPS = [
     {
       pose: 'front',
-      message: 'Nhin thang vao camera',
+      message: 'Nhìn thẳng vào camera',
       direction: '',
-      passed: (face) => Math.abs(face.yawRatio) <= CENTER_YAW_LIMIT,
+      passed: (f) =>
+        Math.abs(f.yaw) <= FRONT_YAW_LIMIT &&
+        Math.abs(f.pitch) <= PITCH_LIMIT &&
+        Math.abs(f.roll) <= ROLL_LIMIT_RAD,
+      hint: (f) => {
+        if (Math.abs(f.roll) > ROLL_LIMIT_RAD) return 'Giữ đầu thẳng, đừng nghiêng em';
+        if (Math.abs(f.pitch) > PITCH_LIMIT)
+          return f.pitch > 0 ? 'Ngẩng đầu đi em' : 'Cúi đầu xuống một chút đi em';
+        if (Math.abs(f.yaw) > FRONT_YAW_LIMIT) return 'Nhìn thẳng vào camera em';
+        return 'Nhìn thẳng vào camera em';
+      },
     },
     {
       pose: 'left',
-      message: 'Quay nhe dau sang trai',
+      message: 'Quay đầu sang trái đi em',
       direction: 'left',
-      passed: (face) => face.yawRatio >= SIDE_YAW_LIMIT,
+      passed: (f) =>
+        f.yaw >= SIDE_YAW_LIMIT &&
+        f.yaw <= SIDE_YAW_MAX &&
+        Math.abs(f.pitch) <= SIDE_PITCH_LIMIT &&
+        Math.abs(f.roll) <= SIDE_ROLL_LIMIT_RAD,
+      hint: (f) => {
+        if (Math.abs(f.roll) > SIDE_ROLL_LIMIT_RAD) return 'Giữ đầu thẳng, chỉ quay ngang';
+        if (Math.abs(f.pitch) > SIDE_PITCH_LIMIT) return 'Giữ đầu ngang, đừng cúi em';
+        if (f.yaw < SIDE_YAW_LIMIT) return 'Quay thếm sang trái em';
+        if (f.yaw > SIDE_YAW_MAX) return 'Quay ít lài một chút em';
+        return 'Quay đầu sang trái';
+      },
     },
     {
       pose: 'right',
-      message: 'Quay nhe dau sang phai',
+      message: 'Quay đầu sang phải đi em',
       direction: 'right',
-      passed: (face) => face.yawRatio <= -SIDE_YAW_LIMIT,
+      passed: (f) =>
+        f.yaw <= -SIDE_YAW_LIMIT &&
+        f.yaw >= -SIDE_YAW_MAX &&
+        Math.abs(f.pitch) <= SIDE_PITCH_LIMIT &&
+        Math.abs(f.roll) <= SIDE_ROLL_LIMIT_RAD,
+      hint: (f) => {
+        if (Math.abs(f.roll) > SIDE_ROLL_LIMIT_RAD) return 'Giữ đầu thẳng, chỉ quay ngang';
+        if (Math.abs(f.pitch) > SIDE_PITCH_LIMIT) return 'Giữ đầu ngang, đừng cúi em';
+        if (f.yaw > -SIDE_YAW_LIMIT) return 'Quay thêm sang phải đi em';
+        if (f.yaw < -SIDE_YAW_MAX) return 'Quay ít lại mot chút đi em';
+        return 'Quay đầu sang phai đi em';
+      },
     },
   ];
 
@@ -38,6 +96,10 @@
   let stepIndex = 0;
   let stableFrames = 0;
   let captured = [];
+  let prevNose = null;
+  let cachedOval = null;
+  let brightnessCanvas = null;
+  let brightnessCtx = null;
 
   function el(id) {
     return document.getElementById(id);
@@ -85,12 +147,14 @@
   }
 
   function getBrightness(video) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 48;
-    canvas.height = 36;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    if (!brightnessCanvas) {
+      brightnessCanvas = document.createElement('canvas');
+      brightnessCanvas.width = 48;
+      brightnessCanvas.height = 36;
+      brightnessCtx = brightnessCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    brightnessCtx.drawImage(video, 0, 0, brightnessCanvas.width, brightnessCanvas.height);
+    const pixels = brightnessCtx.getImageData(0, 0, brightnessCanvas.width, brightnessCanvas.height).data;
     let total = 0;
 
     for (let i = 0; i < pixels.length; i += 4) {
@@ -99,63 +163,163 @@
     return total / (pixels.length / 4);
   }
 
-  function averageX(landmarks, indexes) {
-    return indexes.reduce((sum, index) => sum + landmarks[index].x, 0) / indexes.length;
+  function getVisibleRegion(video, containerW, containerH) {
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const containerAR = containerW / containerH;
+    const videoAR = vw / vh;
+
+    let visibleW, visibleH, offsetX, offsetY;
+    if (videoAR > containerAR) {
+      visibleH = vh;
+      visibleW = vh * containerAR;
+      offsetX = (vw - visibleW) / 2;
+      offsetY = 0;
+    } else {
+      visibleW = vw;
+      visibleH = vw / containerAR;
+      offsetX = 0;
+      offsetY = (vh - visibleH) / 2;
+    }
+    return { visibleW, visibleH, offsetX, offsetY, vw, vh };
   }
 
-  function analyzeFace(results) {
-    const video = el('camera');
+  function landmarkToContainer(lm, region, containerW, containerH) {
+    const xPx = lm.x * region.vw - region.offsetX;
+    const yPx = lm.y * region.vh - region.offsetY;
+    return {
+      x: (xPx / region.visibleW) * containerW,
+      y: (yPx / region.visibleH) * containerH,
+    };
+  }
+
+  function pointInOval(pt, cx, cy, rx, ry) {
+    const dx = (pt.x - cx) / rx;
+    const dy = (pt.y - cy) / ry;
+    return dx * dx + dy * dy <= 1.0;
+  }
+
+  function faceOvalInsideRatio(landmarks, region, oval) {
+    let inside = 0;
+    for (let i = 0; i < FACE_OVAL_INDICES.length; i++) {
+      const pt = landmarkToContainer(landmarks[FACE_OVAL_INDICES[i]], region, oval.containerW, oval.containerH);
+      if (pointInOval(pt, oval.cx, oval.cy, oval.rx, oval.ry)) inside++;
+    }
+    return inside / FACE_OVAL_INDICES.length;
+  }
+
+  function computeOvalGeometry(video) {
+    const wrapper = video.parentElement;
+    const guide = wrapper && wrapper.querySelector('.face-guide');
+    if (!wrapper || !guide) return null;
+
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const guideRect = guide.getBoundingClientRect();
+    return {
+      containerW: wrapperRect.width,
+      containerH: wrapperRect.height,
+      cx: guideRect.left - wrapperRect.left + guideRect.width / 2,
+      cy: guideRect.top - wrapperRect.top + guideRect.height / 2,
+      rx: Math.max(1, guideRect.width / 2 + OVAL_EXPAND_PX),
+      ry: Math.max(1, guideRect.height / 2 + OVAL_EXPAND_PX),
+    };
+  }
+
+  function getOvalGeometry(video) {
+    if (!cachedOval) cachedOval = computeOvalGeometry(video);
+    return cachedOval;
+  }
+
+  function invalidateOval() {
+    cachedOval = null;
+  }
+
+  function computeFaceMetrics(landmarks) {
+    let minX = 1, maxX = 0, minY = 1, maxY = 0;
+    for (let i = 0; i < landmarks.length; i++) {
+      const p = landmarks[i];
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const width = maxX - minX;
+    const height = maxY - minY;
+    const centerX = minX + width / 2;
+    const centerY = minY + height / 2;
+
+    const nose = landmarks[LM.NOSE_TIP];
+    const forehead = landmarks[LM.FOREHEAD];
+    const chin = landmarks[LM.CHIN];
+    const leftEyeOuter = landmarks[LM.LEFT_EYE_OUTER];
+    const leftEyeInner = landmarks[LM.LEFT_EYE_INNER];
+    const rightEyeInner = landmarks[LM.RIGHT_EYE_INNER];
+    const rightEyeOuter = landmarks[LM.RIGHT_EYE_OUTER];
+    const leftCheek = landmarks[LM.LEFT_CHEEK];
+    const rightCheek = landmarks[LM.RIGHT_CHEEK];
+
+    const leftEyeX = (leftEyeOuter.x + leftEyeInner.x) / 2;
+    const leftEyeY = (leftEyeOuter.y + leftEyeInner.y) / 2;
+    const rightEyeX = (rightEyeOuter.x + rightEyeInner.x) / 2;
+    const rightEyeY = (rightEyeOuter.y + rightEyeInner.y) / 2;
+    const eyeMidX = (leftEyeX + rightEyeX) / 2;
+    const eyeMidY = (leftEyeY + rightEyeY) / 2;
+
+    const roll = Math.atan2(rightEyeY - leftEyeY, rightEyeX - leftEyeX);
+
+    const leftDist = Math.max(1e-6, nose.x - leftCheek.x);
+    const rightDist = Math.max(1e-6, rightCheek.x - nose.x);
+    const yaw = (leftDist - rightDist) / (leftDist + rightDist);
+
+    const upper = Math.max(1e-6, nose.y - forehead.y);
+    const lower = Math.max(1e-6, chin.y - nose.y);
+    const pitch = (upper - lower) / (upper + lower);
+
+    return {
+      bbox: { minX, maxX, minY, maxY },
+      width,
+      height,
+      centerX,
+      centerY,
+      nose,
+      eyeMidX,
+      eyeMidY,
+      yaw,
+      pitch,
+      roll,
+    };
+  }
+
+  function analyzeFace(results, video, oval) {
     const faces = results.multiFaceLandmarks || [];
 
-    if (faces.length === 0) {
-      return { ok: false, reason: 'Khong thay khuon mat' };
-    }
-    if (faces.length > 1) {
-      return { ok: false, reason: 'Chi giu mot khuon mat trong khung' };
-    }
+    if (faces.length === 0) return { ok: false, reason: 'Không thấy khuôn mặt' };
+    if (faces.length > 1) return { ok: false, reason: 'Chỉ giữ một khuôn mặt trong khung' };
 
     const landmarks = faces[0];
-    let minX = 1;
-    let maxX = 0;
-    let minY = 1;
-    let maxY = 0;
+    const m = computeFaceMetrics(landmarks);
 
-    landmarks.forEach((point) => {
-      minX = Math.min(minX, point.x);
-      maxX = Math.max(maxX, point.x);
-      minY = Math.min(minY, point.y);
-      maxY = Math.max(maxY, point.y);
-    });
+    if (m.width < MIN_FACE_WIDTH) return { ok: false, reason: 'Đưa mặt lại gần hơn' };
+    if (m.width > MAX_FACE_WIDTH) return { ok: false, reason: 'Lùi ra xa một chút' };
 
-    const width = maxX - minX;
-    const centerX = minX + width / 2;
-    const centerY = minY + (maxY - minY) / 2;
     const brightness = getBrightness(video);
+    if (brightness < MIN_BRIGHTNESS) return { ok: false, reason: 'Tăng ánh sáng mạnh lên' };
+    if (brightness > MAX_BRIGHTNESS) return { ok: false, reason: 'Giảm ánh sáng trực tiếp' };
 
-    if (width < MIN_FACE_WIDTH) {
-      return { ok: false, reason: 'Dua mat lai gan hon' };
-    }
-    if (width > MAX_FACE_WIDTH) {
-      return { ok: false, reason: 'Lui ra xa mot chut' };
-    }
-    if (centerX < CENTER_MIN || centerX > CENTER_MAX || centerY < 0.25 || centerY > 0.75) {
-      return { ok: false, reason: 'Dua mat vao giua khung' };
-    }
-    if (brightness < MIN_BRIGHTNESS) {
-      return { ok: false, reason: 'Tang anh sang len' };
-    }
-    if (brightness > MAX_BRIGHTNESS) {
-      return { ok: false, reason: 'Giam anh sang truc tiep' };
+    const region = getVisibleRegion(video, oval.containerW, oval.containerH);
+    const insideRatio = faceOvalInsideRatio(landmarks, region, oval);
+    if (insideRatio < OVAL_INSIDE_RATIO) {
+      return { ok: false, reason: 'Đưa mặt vào trong khung oval' };
     }
 
-    const leftEyeX = averageX(landmarks, [33, 133]);
-    const rightEyeX = averageX(landmarks, [362, 263]);
-    const eyeMidX = (leftEyeX + rightEyeX) / 2;
-    const noseX = landmarks[1].x;
+    const nosePx = landmarkToContainer(m.nose, region, oval.containerW, oval.containerH);
 
     return {
       ok: true,
-      yawRatio: (noseX - eyeMidX) / width,
+      yaw: m.yaw,
+      pitch: m.pitch,
+      roll: m.roll,
+      nosePx,
     };
   }
 
@@ -167,7 +331,7 @@
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
 
     return new Promise((resolve) => {
-      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92);
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.95);
     });
   }
 
@@ -178,6 +342,7 @@
     captured.push({ pose: step.pose, blob });
     markStepDone(step.pose);
     stableFrames = 0;
+    prevNose = null;
     stepIndex += 1;
 
     if (stepIndex >= STEPS.length) {
@@ -191,7 +356,7 @@
 
   async function submitCapturedImages() {
     active = false;
-    showUiFeedback('Dang luu anh...', '');
+    showUiFeedback('Đang lưu ảnh...', '');
 
     const dataTransfer = new DataTransfer();
     captured.forEach((item) => {
@@ -207,11 +372,16 @@
   async function handleResults(results) {
     if (!active || stepIndex >= STEPS.length) return;
 
-    const face = analyzeFace(results);
+    const video = el('camera');
+    const oval = getOvalGeometry(video);
+    if (!oval) return;
+
+    const face = analyzeFace(results, video, oval);
     const step = STEPS[stepIndex];
 
     if (!face.ok) {
       stableFrames = 0;
+      prevNose = null;
       setGuide(false);
       showUiFeedback(face.reason, step.direction);
       return;
@@ -219,18 +389,32 @@
 
     if (!step.passed(face)) {
       stableFrames = 0;
+      prevNose = face.nosePx;
       setGuide(false);
-      showUiFeedback(step.message, step.direction);
+      showUiFeedback(step.hint(face), step.direction);
       return;
     }
 
+    if (prevNose) {
+      const dx = face.nosePx.x - prevNose.x;
+      const dy = face.nosePx.y - prevNose.y;
+      if (Math.hypot(dx, dy) > MOTION_PX_LIMIT) {
+        stableFrames = 0;
+        prevNose = face.nosePx;
+        setGuide(true);
+        showUiFeedback('Giữ yên...', step.direction);
+        return;
+      }
+    }
+
+    prevNose = face.nosePx;
     stableFrames += 1;
     setGuide(true);
 
     if (stableFrames >= STABLE_FRAMES_REQUIRED) {
       await completeStep(step);
     } else {
-      showUiFeedback('Giu yen...', step.direction);
+      showUiFeedback('Giữ yên...', step.direction);
     }
   }
 
@@ -244,7 +428,7 @@
       try {
         await faceMesh.send({ image: el('camera') });
       } catch (err) {
-        showUiFeedback(`Loi xu ly camera: ${err.message}`, '');
+        showUiFeedback(`Lỗi xử lý camera: ${err.message}`, '');
       } finally {
         sending = false;
       }
@@ -258,13 +442,14 @@
     if (!video) return;
 
     if (typeof FaceMesh === 'undefined') {
-      showUiFeedback('Khong tai duoc FaceMesh', '');
+      showUiFeedback('Không tải được FaceMesh', '');
       return;
     }
 
     stepIndex = 0;
     stableFrames = 0;
     captured = [];
+    prevNose = null;
     ['front', 'left', 'right'].forEach((pose) => {
       const step = el(`step-${pose}`);
       if (step) step.classList.remove('done');
@@ -282,10 +467,10 @@
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
     });
     faceMesh.setOptions({
-      maxNumFaces: 2,
+      maxNumFaces: 1,
       refineLandmarks: true,
-      minDetectionConfidence: 0.75,
-      minTrackingConfidence: 0.75,
+      minDetectionConfidence: 0.8,
+      minTrackingConfidence: 0.8,
       selfieMode: false,
     });
     faceMesh.onResults(handleResults);
@@ -301,9 +486,12 @@
       restartBtn.addEventListener('click', () => {
         stopCamera();
         active = false;
+        invalidateOval();
         start();
       });
     }
+    window.addEventListener('resize', invalidateOval);
+    window.addEventListener('orientationchange', invalidateOval);
     start();
   };
 }());
