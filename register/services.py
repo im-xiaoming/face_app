@@ -1,5 +1,7 @@
 import cv2
+import logging
 import shutil
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
@@ -8,7 +10,9 @@ from django.conf import settings
 from django.core.files import File
 
 from models.processing import preprocess_face, estimate_pose_and_quality
-from users.models import FaceImage
+from users.models import FaceImage, UserEmbedding
+
+logger = logging.getLogger(__name__)
 
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
@@ -69,8 +73,9 @@ def process_images(raw_paths: list[Path], processed_dir: Path) -> list[dict]:
     return [r for r in results if r is not None]
 
 
-def save_face_images(user, accepted: list[dict], temp_dir: Path) -> None:
+def save_face_images(user, accepted: list[dict], temp_dir: Path) -> list[FaceImage]:
     """Tạo FaceImage cho từng ảnh đạt, lưu cả raw lẫn processed vào DB và storage."""
+    face_images = []
     for img_info in accepted:
         raw_path = temp_dir / 'raw' / img_info['raw']
         proc_path = temp_dir / 'processed' / img_info['processed']
@@ -80,5 +85,33 @@ def save_face_images(user, accepted: list[dict], temp_dir: Path) -> None:
             face.raw_image.save(img_info['raw'], File(rf), save=False)
             face.processed_image.save(img_info['processed'], File(pf), save=False)
         face.save()
+        face_images.append(face)
 
     shutil.rmtree(temp_dir, ignore_errors=True)
+    return face_images
+
+
+def _extract_and_store_embeddings(user, face_images: list[FaceImage]) -> None:
+    from models import inference
+    from tools import update
+
+    try:
+        processed_paths = [fi.processed_image.path for fi in face_images]
+        embeddings = inference(processed_paths)
+
+        points = []
+        for face_img, embedding in zip(face_images, embeddings):
+            UserEmbedding.objects.create(user=user, embed_id=face_img.pk)
+            points.append((face_img.pk, embedding, {'user_id': user.pk}))
+
+        update(points)
+    except Exception:
+        logger.exception("Failed to extract/store embeddings for user %s", user.pk)
+
+
+def schedule_embedding_extraction(user, face_images: list[FaceImage]) -> None:
+    threading.Thread(
+        target=_extract_and_store_embeddings,
+        args=(user, face_images),
+        daemon=True,
+    ).start()

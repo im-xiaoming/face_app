@@ -6,7 +6,7 @@ from django.conf import settings
 from django.shortcuts import render, redirect
 
 from .forms import UserForm
-from .services import make_temp_dirs, save_raw_files, process_images, save_face_images
+from .services import make_temp_dirs, save_raw_files, process_images, save_face_images, schedule_embedding_extraction
 
 
 MIN_IMAGES = 2
@@ -61,7 +61,8 @@ def register_info(request):
         if form.is_valid():
             user = form.save()
             temp_dir = Path(settings.BASE_DIR) / 'media' / 'temp' / temp_key
-            save_face_images(user, accepted, temp_dir)
+            face_images = save_face_images(user, accepted, temp_dir)
+            schedule_embedding_extraction(user, face_images)
             del request.session['temp_upload_key']
             del request.session['accepted_images']
             return redirect('home')

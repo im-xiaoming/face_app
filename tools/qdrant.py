@@ -8,7 +8,7 @@ _cache = {}
 
 def _get_client():
     if _cache:
-        return _cache['client']
+        return _cache['client'], _cache['collection_name']
     
     client = QdrantClient(path=Path(settings.BASE_DIR) / 'vectorstore' / 'qdrant')
     collection_name = 'users_embeds'
@@ -26,7 +26,7 @@ def _get_client():
 
 
 def search(query: torch.Tensor, limit=5):
-    client, collection_name = _get_client['client']
+    client, collection_name = _get_client()
     
     results = client.query_points(
         collection_name=collection_name,
@@ -49,7 +49,7 @@ def search(query: torch.Tensor, limit=5):
 
     
 def update(queries: list[tuple[int, torch.Tensor, dict]]):
-    client, collection_name = _get_client['client']
+    client, collection_name = _get_client()
     
     client.upsert(
         collection_name=collection_name,
@@ -62,7 +62,7 @@ def update(queries: list[tuple[int, torch.Tensor, dict]]):
     
 
 def delete(ids: list[int]):
-    client, collection_name = _get_client['client']
+    client, collection_name = _get_client()
      
     client.delete(
         collection_name=collection_name,
