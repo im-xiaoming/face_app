@@ -1,14 +1,14 @@
 (function () {
   const PROCESS_INTERVAL_MS = 350;
-  const STABLE_FRAMES_REQUIRED = 3;
-  const MIN_FACE_WIDTH = 0.22;
+  const STABLE_FRAMES_REQUIRED = 2;
+  const MIN_FACE_WIDTH = 0.18;
   const MAX_FACE_WIDTH = 0.72;
   const MIN_BRIGHTNESS = 45;
   const MAX_BRIGHTNESS = 225;
 
-  const OVAL_INSIDE_RATIO = 0.55;
+  const OVAL_INSIDE_RATIO = 0.45;
   const OVAL_EXPAND_PX = 20;
-  const MOTION_PX_LIMIT = 12;
+  const MOTION_PX_LIMIT = 18;
 
   const FACE_OVAL_INDICES = [
     10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365,
@@ -16,13 +16,13 @@
     234, 127, 162, 21, 54, 103, 67, 109,
   ];
 
-  const FRONT_YAW_LIMIT = 0.025;
-  const SIDE_YAW_LIMIT = 0.12;
-  const SIDE_YAW_MAX = 0.45;
-  const PITCH_LIMIT = 0.045;
-  const SIDE_PITCH_LIMIT = 0.06;
-  const ROLL_LIMIT_RAD = 0.09;
-  const SIDE_ROLL_LIMIT_RAD = 0.13;
+  const FRONT_YAW_LIMIT = 0.04;
+  const SIDE_YAW_LIMIT = 0.07;
+  const SIDE_YAW_MAX = 0.55;
+  const PITCH_LIMIT = 0.08;
+  const SIDE_PITCH_LIMIT = 0.1;
+  const ROLL_LIMIT_RAD = 0.14;
+  const SIDE_ROLL_LIMIT_RAD = 0.18;
 
   const LM = {
     NOSE_TIP: 1,

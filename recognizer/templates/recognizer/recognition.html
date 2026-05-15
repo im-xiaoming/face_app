@@ -17,7 +17,13 @@
     <h1 class="title">Recognition</h1>
     
     <div class="camera-wrapper">
-      <video id="camera" class="camera-view" autoplay playsinline></video>
+      <video
+        id="camera"
+        class="camera-view"
+        autoplay
+        playsinline
+        data-recognition-url="{% url 'recognition-api' %}"
+      ></video>
     </div>
     
     <div id="status" class="status">Đang quét khuôn mặt...</div>
@@ -34,8 +40,15 @@
 
 
 {% block js %}
+  <script src="{% static 'recognizer/js/recognition.js' %}"></script>
   <script>
-    initCamera('camera');
-    startRecognition();
+    (async function () {
+      try {
+        await initCamera('camera');
+        startBackendRecognition();
+      } catch (err) {
+        showStatus(err.message);
+      }
+    }());
   </script>
 {% endblock %}
